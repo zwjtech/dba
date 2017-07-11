@@ -80,7 +80,38 @@ slave-read-only
 repl-diskless-sync yes
  ```
 
+## 添加密码认证
 
+master 参数
+
+```shell
+# 1. 修改配置，并重启
+requirepass zy123456
+# 2. 通过命令行进行配置，无需重启，当前生效，重启失效
+> config set requirepass zy123456  
+OK  
+> config get requirepass  
+1) "requirepass"  
+2) "my_redis"
+
+# 登陆方式1. 带密码参数登陆
+redis-cli -a zy123456
+# 登陆方式2. 交互式命令登陆
+> auth zy123456
+```
+
+
+
+slave 参数
+
+```shell
+# 1. 修改配置文件
+masterauth  zy123456
+# 2. 通过命令行进行配置，无需重启，当前生效，重启失效
+> config set masterauth zy123456
+```
+
+此时访问master需要密码，访问slave不需要密码。
 
 ## 配置主从
 
