@@ -37,9 +37,9 @@ then
 	sed -i "1ibind $1 127.0.0.1" /alidata/redis/conf/redis${i}.conf
 	sed -i 's/appendonly no/appendonly yes/' /alidata/redis/conf/redis${i}.conf
 	sed -i "s/port.*/port $i/" /alidata/redis/conf/redis${i}.conf
-	sed -i "s@dir.*@dir \/data\/redis\/data\/${i}@" /alidata/redis/conf/redis${i}.conf 
-	sed -i "s@pid.*@pidfile \/data\/redis\/pid\/redis${i}.pid@" /alidata/redis/conf/redis${i}.conf
-	sed -i "s@logfile.*@logfile \/data\/redis\/log\/redis${i}.log@" /alidata/redis/conf/redis${i}.conf
+	sed -i "s@dir.*@dir \/alidata\/redis\/data\/${i}@" /alidata/redis/conf/redis${i}.conf 
+	sed -i "s@pid.*@pidfile \/alidata\/redis\/pid\/redis${i}.pid@" /alidata/redis/conf/redis${i}.conf
+	sed -i "s@logfile.*@logfile \/alidata\/redis\/log\/redis${i}.log@" /alidata/redis/conf/redis${i}.conf
 	sed -i "21islaveof ${mip} ${mport}" /alidata/redis/conf/redis${i}.conf
 	sed -i "22imasterauth ${mpassword}" /alidata/redis/conf/redis${i}.conf
 	sed -i "23irequirepass ${mpassword}" /alidata/redis/conf/redis${i}.conf
