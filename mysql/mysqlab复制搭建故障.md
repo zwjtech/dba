@@ -10,6 +10,8 @@
 
 ![](pic/3.png)
 
+客户自己随便创建了该表，尝试跳过该报错。
+
 ## 排错信息获取
 
 ### 客户权限
@@ -169,9 +171,11 @@ log_bin_trust_function_creators = 1
 transaction_isolation = READ-COMMITTED
 ```
 
+初步判断，用户的主从搭建过程中执行了一些操作导致初始化数据不一致。
 
+## 具体排错过程
 
-
+### 报错1——Error_code: 1062
 
 ```shell
 [root@hjkj-mysql ~]# mysql -uroot -p'cqhjkj624991557.'
@@ -405,7 +409,6 @@ WARNING: The range of printed events ends with a row event or a table map event 
 ###   @5='任务执行结束!' /* VARSTRING(2250) meta=2250 nullable=1 is_null=0 */
 ###   @6='2017-05-28 01:10:54' /* DATETIME(0) meta=0 nullable=1 is_null=0 */
 
-
 ```
 
 到此认为客户的从库中有很多已经重演的数据，客户主从配置有问题，先尝试跳过主键重复的错误。
@@ -416,7 +419,11 @@ slave-skip-errors=1062
 systemctl restart mysqld
 ```
 
-跳过该错误后，新的报错如下
+
+
+### 报错2——cannot be converted from type 'bigint' to type 'varchar(255)'
+
+客户的某张表的ddl与主库不一致
 
 ```shell
 mysql> show slave status\G;
@@ -488,7 +495,6 @@ mysql> desc fireway.lm_month_deduct;
 | test  | varchar(255) | YES  |     | NULL    |       |
 +-------+--------------+------+-----+---------+-------+
 1 row in set (0.01 sec)
-
 ```
 
 缺少一张表fireway.lm_month_deduct，客户自己新建了一张测试表。现在需要该表的ddl，在从机上创建，并导入初始数据。
@@ -532,7 +538,11 @@ CREATE TABLE `lm_month_deduct` (
 
 
 # 客户花了5个小时完成了该表数据的导入，该表6个G
+```
 
+### 报错03——'Table 'fireway.zjzf_tx2011_log' doesn't exist'
+
+```shell
 # 启动slave后出现新的报错 fireway.zjzf_tx2011_log 表不存在
 mysql> start slave;
 Query OK, 0 rows affected, 1 warning (0.03 sec)
@@ -595,6 +605,239 @@ Master_SSL_Verify_Server_Cert: No
 8480a8c6-62c5-11e7-9c43-00163e00013d:1-10750089
                 Auto_Position: 1
 1 row in set (0.00 sec)
+
+# 2017-07-12日客户自己恢复了该表的ddl，报新的错误
+-rw-rw---- 1 mysql mysql       14453 Jul 11 21:29 zjzf_tx2011_log.frm
+-rw-rw---- 1 mysql mysql      131072 Jul 11 21:36 zjzf_tx2011_log.ibd
+```
+
+### 报错4——Could not execute Update_rows event
+
+缺少记录
+
+```shell
+
+               Relay_Log_File: hjkj-mysql-relay-bin.000009
+                Relay_Log_Pos: 25715615
+
+     Last_SQL_Error: Worker 3 failed executing transaction '5cc28f3c-6a8d-11e4-beff-00163e5563d9:418375072' at master log master-bin.004040, end_log_pos 807207544; Could not execute Update_rows event on table fireway.sm_logon_his; Can't find record in 'sm_logon_his', Error_code: 1032; handler error HA_ERR_KEY_NOT_FOUND; the event's master log FIRST, end_log_pos 807207544
+
+# 从机要重演update操作，但是表 fireway.sm_logon_his 中没有相关记录
+# 从对应的中继日志中过滤出数据
+[root@hjkj-mysql data]# mysqlbinlog --no-defaults -v -v hjkj-mysql-relay-bin.000009| sed -n '/at 25715615/,/COMMIT/p'|grep '^###' 
+WARNING: The range of printed events ends with a row event or a table map event that does not have the STMT_END_F flag set. This might be because the last statement was not fully written to the log, or because you are using a --stop-position or --stop-datetime that refers to an event in the middle of a statement. The event(s) from the partial statement have not been written to output.
+### UPDATE `fireway`.`sm_logon_his`
+### WHERE
+###   @1=1910648 /* LONGINT meta=0 nullable=0 is_null=0 */
+###   @2='CQZCljw' /* VARSTRING(765) meta=765 nullable=0 is_null=0 */
+###   @3='2017-05-27 00:00:00' /* DATETIME(0) meta=0 nullable=0 is_null=0 */
+###   @4='192.168.100.180' /* VARSTRING(120) meta=120 nullable=1 is_null=0 */
+###   @5=NULL /* VARSTRING(120) meta=0 nullable=1 is_null=1 */
+###   @6=NULL /* VARSTRING(120) meta=65030 nullable=1 is_null=1 */
+###   @7='CQZCljw20170527215927' /* VARSTRING(90) meta=90 nullable=0 is_null=0 */
+### SET
+###   @1=1910648 /* LONGINT meta=0 nullable=0 is_null=0 */
+###   @2='CQZCljw' /* VARSTRING(765) meta=765 nullable=0 is_null=0 */
+###   @3='2017-05-27 00:00:00' /* DATETIME(0) meta=0 nullable=0 is_null=0 */
+###   @4='192.168.100.180' /* VARSTRING(120) meta=120 nullable=1 is_null=0 */
+###   @5='2017-05-28 00:00:00' /* DATETIME(0) meta=0 nullable=1 is_null=0 */
+###   @6=NULL /* DATETIME(0) meta=65030 nullable=1 is_null=1 */
+###   @7='CQZCljw20170527215927' /* VARSTRING(90) meta=90 nullable=0 is_null=0 */
+
+mysql> desc fireway.sm_logon_his;
++-------------+--------------+------+-----+---------+----------------+
+| Field       | Type         | Null | Key | Default | Extra          |
++-------------+--------------+------+-----+---------+----------------+
+| ID          | bigint(18)   | NO   | PRI | NULL    | auto_increment |
+| user_id     | varchar(255) | NO   | MUL | NULL    |                |
+| login_time  | datetime     | NO   |     | NULL    |                |
+| client_ip   | varchar(40)  | YES  |     | NULL    |                |
+| logout_time | datetime     | YES  |     | NULL    |                |
+| logout_type | char(2)      | YES  |     | NULL    |                |
+| session_id  | varchar(30)  | NO   |     | NULL    |                |
++-------------+--------------+------+-----+---------+----------------+
+7 rows in set (0.00 sec)
+
+mysql> select * from fireway.sm_logon_his where ID=1910648;
+Empty set (0.00 sec)
+
+mysql> select * from fireway.sm_logon_his 
+    -> ;
++---------+---------+---------------------+-----------------+-------------+-------------+-----------------------+
+| ID      | user_id | login_time          | client_ip       | logout_time | logout_type | session_id            |
++---------+---------+---------------------+-----------------+-------------+-------------+-----------------------+
+| 1910813 | CQZCzcp | 2017-05-28 00:00:00 | 192.168.100.180 | NULL        | NULL        | CQZCzcp20170528010334 |
++---------+---------+---------------------+-----------------+-------------+-------------+-----------------------+
+1 row in set (0.00 sec)
+# 当前该表中只有一行数据，且需要更新的行是没有的。
+
+# 查找中继日志中关于该表的sql，是否还有冲突
+[root@hjkj-mysql data]# mysqlbinlog --no-defaults -v -v hjkj-mysql-relay-bin.000009| sed -n '/INSERT INTO `fireway`.`sm_logon_his`/,+9p'
+### INSERT INTO `fireway`.`sm_logon_his`
+### SET
+###   @1=1910814 /* LONGINT meta=0 nullable=0 is_null=0 */
+###   @2='WWZCwmj' /* VARSTRING(765) meta=765 nullable=0 is_null=0 */
+###   @3='2017-05-28 00:00:00' /* DATETIME(0) meta=0 nullable=0 is_null=0 */
+###   @4='192.168.100.180' /* VARSTRING(120) meta=120 nullable=1 is_null=0 */
+###   @5=NULL /* VARSTRING(120) meta=0 nullable=1 is_null=1 */
+###   @6=NULL /* VARSTRING(120) meta=65030 nullable=1 is_null=1 */
+###   @7='WWZCwmj20170528010807' /* VARSTRING(90) meta=90 nullable=0 is_null=0 */
+# at 41192784
+
+# 解决方法：
+向表中手动插入该行记录
+
+# 根据row记录来生成插入记录
+[root@hjkj-mysql data]# cat /tmp/boobootest 
+insert into  `fireway`.`sm_logon_his`
+set 
+  ID=1910648 /* LONGINT meta=0 nullable=0 is_null=0 */
+  @2='CQZCljw' /* VARSTRING(765) meta=765 nullable=0 is_null=0 */
+  @3='2017-05-27 00:00:00' /* DATETIME(0) meta=0 nullable=0 is_null=0 */
+  @4='192.168.100.180' /* VARSTRING(120) meta=120 nullable=1 is_null=0 */
+  @5=NULL /* VARSTRING(120) meta=0 nullable=1 is_null=1 */
+  @6=NULL /* VARSTRING(120) meta=65030 nullable=1 is_null=1 */
+  @7='CQZCljw20170527215927' /* VARSTRING(90) meta=90 nullable=0 is_null=0 */
+[root@hjkj-mysql data]# sed -i 's/@2/user_id/' /tmp/boobootest 
+[root@hjkj-mysql data]# sed -i 's/@3/login_time/' /tmp/boobootest 
+[root@hjkj-mysql data]# sed -i 's/@4/client_ip/' /tmp/boobootest 
+[root@hjkj-mysql data]# sed -i 's/@5/logout_time/' /tmp/boobootest 
+[root@hjkj-mysql data]# sed -i 's/@6/logout_type/' /tmp/boobootest 
+[root@hjkj-mysql data]# sed -i 's/@7/session_id/' /tmp/boobootest 
+[root@hjkj-mysql data]# sed -i 's@\/\*.*\*\/@@' /tmp/boobootest
+[root@hjkj-mysql data]# cat /tmp/boobootest 
+insert into  `fireway`.`sm_logon_his`
+set 
+  ID=1910648 ,
+  user_id='CQZCljw', 
+  login_time='2017-05-27 00:00:00' ,
+  client_ip='192.168.100.180', 
+  logout_time=NULL ,
+  logout_type=NULL ,
+  session_id='CQZCljw20170527215927' ;
+  [root@hjkj-mysql data]# booboo < /tmp/boobootest 
+Warning: Using a password on the command line interface can be insecure.
+mysql> stop slave;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> start slave;
+Query OK, 0 rows affected, 1 warning (0.01 sec)
+
+mysql> show slave status\G;
+```
+
+### 报错5——Could not execute Update_rows event
+
+同样是数据不一致，从机缺少记录，但是这次出现缺少记录的表本身就有问题，有三个主键，并且为主键的列还有重复。
+
+```shell
+# 开始同步，但是重演到18号日志又出问题了
+mysql> show slave status\G;
+*************************** 1. row ***************************
+               Slave_IO_State: Waiting for master to send event
+                  Master_Host: 119.90.40.222
+                  Master_User: repluser
+                  Master_Port: 3306
+                Connect_Retry: 60
+              Master_Log_File: master-bin.004078
+          Read_Master_Log_Pos: 888961468
+               Relay_Log_File: hjkj-mysql-relay-bin.000018
+                Relay_Log_Pos: 85873572
+        Relay_Master_Log_File: master-bin.004041
+             Slave_IO_Running: Yes
+            Slave_SQL_Running: No
+              Replicate_Do_DB: 
+          Replicate_Ignore_DB: 
+           Replicate_Do_Table: 
+       Replicate_Ignore_Table: 
+      Replicate_Wild_Do_Table: 
+  Replicate_Wild_Ignore_Table: 
+                   Last_Errno: 1032
+                   Last_Error: Worker 3 failed executing transaction '5cc28f3c-6a8d-11e4-beff-00163e5563d9:418385717' at master log master-bin.004041, end_log_pos 757023051; Could not execute Update_rows event on table fireway.moneyleadingrecord; Can't find record in 'moneyleadingrecord', Error_code: 1032; handler error HA_ERR_KEY_NOT_FOUND; the event's master log master-bin.004041, end_log_pos 757023051
+
+# fireway.moneyleadingrecord表有记录丢失，根据row日志回滚
+
+[root@hjkj-mysql data]# mysqlbinlog --no-defaults -v -v hjkj-mysql-relay-bin.000018| sed -n '/85873572/,/COMMIT/p' | grep '^###'
+WARNING: The range of printed events ends with a row event or a table map event that does not have the STMT_END_F flag set. This might be because the last statement was not fully written to the log, or because you are using a --stop-position or --stop-datetime that refers to an event in the middle of a statement. The event(s) from the partial statement have not been written to output.
+### UPDATE `fireway`.`bm_job_task_info`
+### WHERE
+###   @1='defaultJobGroup.lmjob' /* VARSTRING(150) meta=150 nullable=0 is_null=0 */
+###   @2='2017-05-27 00:00:00' /* DATETIME(0) meta=0 nullable=0 is_null=0 */
+###   @3='LmMonthStatisticsProcessJob' /* VARSTRING(150) meta=150 nullable=0 is_null=0 */
+###   @4='2017-05-28 01:17:09' /* DATETIME(0) meta=0 nullable=1 is_null=0 */
+###   @5=NULL /* DATETIME(0) meta=0 nullable=1 is_null=1 */
+###   @6='Running' /* VARSTRING(60) meta=60 nullable=1 is_null=0 */
+### SET
+###   @1='defaultJobGroup.lmjob' /* VARSTRING(150) meta=150 nullable=0 is_null=0 */
+###   @2='2017-05-27 00:00:00' /* DATETIME(0) meta=0 nullable=0 is_null=0 */
+###   @3='LmMonthStatisticsProcessJob' /* VARSTRING(150) meta=150 nullable=0 is_null=0 */
+###   @4='2017-05-28 01:17:09' /* DATETIME(0) meta=0 nullable=1 is_null=0 */
+###   @5='2017-05-28 01:34:52' /* DATETIME(0) meta=0 nullable=1 is_null=0 */
+###   @6='Stopped' /* VARSTRING(60) meta=60 nullable=1 is_null=0 */
+
+mysql> desc `fireway`.`bm_job_task_info`;
++---------------+-------------+------+-----+---------+-------+
+| Field         | Type        | Null | Key | Default | Extra |
++---------------+-------------+------+-----+---------+-------+
+| job_full_name | varchar(50) | NO   | PRI | NULL    |       |
+| biz_date      | datetime    | NO   | PRI | NULL    |       |
+| task_key      | varchar(50) | NO   | PRI | NULL    |       |
+| start_time    | datetime    | YES  |     | NULL    |       |
+| stop_time     | datetime    | YES  |     | NULL    |       |
+| status        | varchar(20) | YES  | MUL | NULL    |       |
++---------------+-------------+------+-----+---------+-------+
+
+
+
+mysql> desc `fireway`.`bm_job_task_info`;
++---------------+-------------+------+-----+---------+-------+
+| Field         | Type        | Null | Key | Default | Extra |
++---------------+-------------+------+-----+---------+-------+
+| job_full_name | varchar(50) | NO   | PRI | NULL    |       |
+| biz_date      | datetime    | NO   | PRI | NULL    |       |
+| task_key      | varchar(50) | NO   | PRI | NULL    |       |
+| start_time    | datetime    | YES  |     | NULL    |       |
+| stop_time     | datetime    | YES  |     | NULL    |       |
+| status        | varchar(20) | YES  | MUL | NULL    |       |
++---------------+-------------+------+-----+---------+-------+
+6 rows in set (0.00 sec)
+
+mysql> select * from `fireway`.`bm_job_task_info` where job_full_name='defaultJobGroup.lmjob' limit 10;
++-----------------------+---------------------+-----------------------------+---------------------+---------------------+---------+
+| job_full_name         | biz_date            | task_key                    | start_time          | stop_time           | status  |
++-----------------------+---------------------+-----------------------------+---------------------+---------------------+---------+
+| defaultJobGroup.lmjob | 2014-03-16 00:00:00 | LmAccountProcessJob         | 2014-03-17 05:32:23 | 2014-03-17 05:32:23 | Stopped |
+| defaultJobGroup.lmjob | 2014-03-16 00:00:00 | LmMonthStatisticsProcessJob | 2014-03-17 05:32:23 | 2014-03-17 05:32:23 | Stopped |
+| defaultJobGroup.lmjob | 2014-03-16 00:00:00 | LmRepaymentPlanProcessJob   | 2014-03-17 05:32:23 | 2014-03-17 05:32:23 | Stopped |
+| defaultJobGroup.lmjob | 2014-03-16 00:00:00 | LmTransactionProcessJob     | 2014-03-17 05:32:23 | 2014-03-17 05:32:23 | Stopped |
+| defaultJobGroup.lmjob | 2014-03-16 00:00:00 | cutover                     | 2014-03-17 05:32:23 | 2014-03-17 05:32:23 | Stopped |
+| defaultJobGroup.lmjob | 2014-03-17 00:00:00 | LmAccountProcessJob         | 2014-03-17 23:00:00 | 2014-03-17 23:00:00 | Stopped |
+| defaultJobGroup.lmjob | 2014-03-17 00:00:00 | LmMonthStatisticsProcessJob | 2014-03-17 23:00:00 | 2014-03-17 23:00:00 | Stopped |
+| defaultJobGroup.lmjob | 2014-03-17 00:00:00 | LmRepaymentPlanProcessJob   | 2014-03-17 23:00:00 | 2014-03-17 23:00:00 | Stopped |
+| defaultJobGroup.lmjob | 2014-03-17 00:00:00 | LmTransactionProcessJob     | 2014-03-17 23:00:00 | 2014-03-17 23:00:00 | Stopped |
+| defaultJobGroup.lmjob | 2014-03-17 00:00:00 | cutover                     | 2014-03-17 23:00:00 | 2014-03-17 23:00:00 | Stopped |
++-----------------------+---------------------+-----------------------------+---------------------+---------------------+---------+
+10 rows in set (0.00 sec)
+
+[root@hjkj-mysql data]# cat /tmp/boobootest 
+insert into  `fireway`.`bm_job_task_info`
+set
+  job_full_name='defaultJobGroup.lmjob',
+  biz_date='2017-05-27 00:00:00',
+  task_key='LmMonthStatisticsProcessJob',
+  start_time='2017-05-28 01:17:09',
+  stop_time=NULL ,
+  status='Running' ;
+
+[root@hjkj-mysql data]# booboo < /tmp/boobootest 
+Warning: Using a password on the command line interface can be insecure.
+ERROR 1062 (23000) at line 1: Duplicate entry 'defaultJobGroup.lmjob-2017-05-27 00:00:00-LmMonthStatisticsProce' for key 'PRIMARY'
+
+# 导入的时候报错，说主键重复
+
+
+# mysqlbinlog --no-defaults -v -v hjkj-mysql-relay-bin.000018| sed -n '/85873572/,/COMMIT/p' | grep '^###'
+# [root@hjkj-mysql data]# for i in `ls hjkj-mysql*`;do mysqlbinlog --no-defaults -v -v $i| sed -n '/at 25715615/,$p'|grep '^###'| grep sm_logon_his;done
 ```
 
 
@@ -602,8 +845,6 @@ Master_SSL_Verify_Server_Cert: No
 ## 故障原因
 
 1. 客户的主从复制中数据不一致，导致在从机报错；
-
-
 2. 在重演sql时出现，从机已经存在需要重演的数据，或不存在某张表。
 
 ## 解决方法
@@ -611,3 +852,6 @@ Master_SSL_Verify_Server_Cert: No
 1. 先尝试修复数据一致；
 2. 实在无法跳过错误，就只能重新搭建从机 
 3. 考虑到客户数据量在160G，且使用逻辑备份，所以重新搭建主从同步的时间大概需要8个小时。
+
+## 总结
+在尝试了修复5个数据一致性的问题后，发现还有大量的中继（三百多个）可能都会有问题，所以强烈建议重新搭建，并使用物理备份与恢复。
