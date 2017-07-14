@@ -585,7 +585,7 @@ Query OK, 0 rows affected (0.00 sec)
 
 
 
-# 报错显示主服务器上的日志已经丢失。
+# 报错显示主服务器上的设置了gtid_purged的值，从机也要同样设置才可。
 
 
 mysql> set global gtid_purged="5cc28f3c-6a8d-11e4-beff-00163e5563d9:1-491028360";
@@ -685,6 +685,158 @@ mysql> show variables like '%gtid%';
 
 # 报错以为找不到主服务器上的日志，后来经过确认日志是存在的，而是gtid的问题，从库由于执行过写操作，所以事务标识与主库不一致。
 # 必须清空gtid_executed ，并设置gtid_purged的值为全备份数据中最后一个全局事务标识符号。
+
+
+mysql> show slave status\G;
+*************************** 1. row ***************************
+               Slave_IO_State: System lock
+                  Master_Host: 119.90.40.222
+                  Master_User: repluser
+                  Master_Port: 3306
+                Connect_Retry: 60
+              Master_Log_File: master-bin.005119
+          Read_Master_Log_Pos: 1241946810
+               Relay_Log_File: hjkj-mysql-relay-bin.000005
+                Relay_Log_Pos: 86846475
+        Relay_Master_Log_File: master-bin.005119
+             Slave_IO_Running: Yes
+            Slave_SQL_Running: No
+              Replicate_Do_DB: 
+          Replicate_Ignore_DB: 
+           Replicate_Do_Table: 
+       Replicate_Ignore_Table: 
+      Replicate_Wild_Do_Table: fireway.%,finance.%
+  Replicate_Wild_Ignore_Table: mysql.%,edw.%,etl2020.%
+                   Last_Errno: 1146
+                   Last_Error: Worker 0 failed executing transaction '' at master log master-bin.005119, end_log_pos 971381272; Error 'Table 'fireway.PR_DELAY_RETURN_AMOUNT' doesn't exist' on query. Default database: 'fireway'. Query: 'TRUNCATE TABLE  PR_DELAY_RETURN_AMOUNT'
+                 Skip_Counter: 0
+          Exec_Master_Log_Pos: 969727047
+              Relay_Log_Space: 493292169
+              Until_Condition: None
+               Until_Log_File: 
+                Until_Log_Pos: 0
+           Master_SSL_Allowed: No
+           Master_SSL_CA_File: 
+           Master_SSL_CA_Path: 
+              Master_SSL_Cert: 
+            Master_SSL_Cipher: 
+               Master_SSL_Key: 
+        Seconds_Behind_Master: NULL
+Master_SSL_Verify_Server_Cert: No
+                Last_IO_Errno: 0
+                Last_IO_Error: 
+               Last_SQL_Errno: 1146
+               Last_SQL_Error: Worker 0 failed executing transaction '' at master log master-bin.005119, end_log_pos 971381272; Error 'Table 'fireway.PR_DELAY_RETURN_AMOUNT' doesn't exist' on query. Default database: 'fireway'. Query: 'TRUNCATE TABLE  PR_DELAY_RETURN_AMOUNT'
+  Replicate_Ignore_Server_Ids: 
+             Master_Server_Id: 100
+                  Master_UUID: 5cc28f3c-6a8d-11e4-beff-00163e5563d9
+             Master_Info_File: mysql.slave_master_info
+                    SQL_Delay: 0
+          SQL_Remaining_Delay: NULL
+      Slave_SQL_Running_State: 
+           Master_Retry_Count: 86400
+                  Master_Bind: 
+      Last_IO_Error_Timestamp: 
+     Last_SQL_Error_Timestamp: 170713 16:35:40
+               Master_SSL_Crl: 
+           Master_SSL_Crlpath: 
+           Retrieved_Gtid_Set: 5cc28f3c-6a8d-11e4-beff-00163e5563d9:491028361-491046904
+            Executed_Gtid_Set: 5cc28f3c-6a8d-11e4-beff-00163e5563d9:1-491042021,
+bcba2d0d-6797-11e7-bbb3-00163e00013d:1-2
+                Auto_Position: 1
+1 row in set (0.05 sec)
+
+
+
+[root@hjkj-mysql ~]# vim /etc/my.cnf
+lower_case_table_names=1
+[root@hjkj-mysql ~]# systemctl restart mysqld
+[root@hjkj-mysql ~]# booboo
+Warning: Using a password on the command line interface can be insecure.
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 9
+Server version: 5.6.36-log MySQL Community Server (GPL)
+
+Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> start slave;
+Query OK, 0 rows affected, 1 warning (0.00 sec)
+
+mysql> show slave statsus\G;
+ERROR 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'statsus' at line 1
+ERROR: 
+No query specified
+
+mysql> show slave status\G;
+*************************** 1. row ***************************
+               Slave_IO_State: Waiting for master to send event
+                  Master_Host: 119.90.40.222
+                  Master_User: repluser
+                  Master_Port: 3306
+                Connect_Retry: 60
+              Master_Log_File: master-bin.005120
+          Read_Master_Log_Pos: 199101835
+               Relay_Log_File: hjkj-mysql-relay-bin.000005
+                Relay_Log_Pos: 95706145
+        Relay_Master_Log_File: master-bin.005119
+             Slave_IO_Running: Yes
+            Slave_SQL_Running: Yes
+              Replicate_Do_DB: 
+          Replicate_Ignore_DB: 
+           Replicate_Do_Table: 
+       Replicate_Ignore_Table: 
+      Replicate_Wild_Do_Table: fireway.%,finance.%
+  Replicate_Wild_Ignore_Table: mysql.%,edw.%,etl2020.%
+                   Last_Errno: 0
+                   Last_Error: 
+                 Skip_Counter: 0
+          Exec_Master_Log_Pos: 978586717
+              Relay_Log_Space: 704452747
+              Until_Condition: None
+               Until_Log_File: 
+                Until_Log_Pos: 0
+           Master_SSL_Allowed: No
+           Master_SSL_CA_File: 
+           Master_SSL_CA_Path: 
+              Master_SSL_Cert: 
+            Master_SSL_Cipher: 
+               Master_SSL_Key: 
+        Seconds_Behind_Master: 145918
+Master_SSL_Verify_Server_Cert: No
+                Last_IO_Errno: 0
+                Last_IO_Error: 
+               Last_SQL_Errno: 0
+               Last_SQL_Error: 
+  Replicate_Ignore_Server_Ids: 
+             Master_Server_Id: 100
+                  Master_UUID: 5cc28f3c-6a8d-11e4-beff-00163e5563d9
+             Master_Info_File: mysql.slave_master_info
+                    SQL_Delay: 0
+          SQL_Remaining_Delay: NULL
+      Slave_SQL_Running_State: Waiting for Slave Worker to release partition
+           Master_Retry_Count: 86400
+                  Master_Bind: 
+      Last_IO_Error_Timestamp: 
+     Last_SQL_Error_Timestamp: 
+               Master_SSL_Crl: 
+           Master_SSL_Crlpath: 
+           Retrieved_Gtid_Set: 5cc28f3c-6a8d-11e4-beff-00163e5563d9:491028361-491051646
+            Executed_Gtid_Set: 5cc28f3c-6a8d-11e4-beff-00163e5563d9:1-491045976,
+bcba2d0d-6797-11e7-bbb3-00163e00013d:1-2
+                Auto_Position: 1
+1 row in set (0.00 sec)
+
+ERROR: 
+No query specified
+
+# 报错是由于查询使用大写表名，而从机没有配置不区分大小
+lower_case_table_names=1
 
 ```
 
