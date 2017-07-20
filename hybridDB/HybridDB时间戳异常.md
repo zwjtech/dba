@@ -131,10 +131,6 @@ Database changed
 mysql> create table t1 (id int,time timestamp not null default '0000-00-00 00:00:00');
 Query OK, 0 rows affected (0.05 sec)
 
-mysql> insert into t1 values (1),(2);
-ERROR 1136 (21S01): Column count doesn't match value count at row 1
-mysql> insert into t1 values set id=1;
-ERROR 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'set id=1' at line 1
 mysql> insert into t1 set id=1;
 Query OK, 1 row affected (0.01 sec)
 
@@ -151,4 +147,7 @@ mysql> select * from t1;
 
 1. 这类异常的触发与timestamp赋值的操作有关，如果能够在设计阶段和记录写入阶段做好逻辑判断，避免写入 '0000-00-00 00:00:00'这类值，那么也可以避免出现 Cannot convert value '0000-00-00 00:00:00' from column N to TIMESTAMP的错误。
 2. Mysql 5.5 和MySQL 5.6 中日期类型timestamp不一样了，需要注意。
+
+
+
 
