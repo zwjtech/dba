@@ -141,7 +141,7 @@ Empty set (0.00 sec)
 ```
 2. 需要确认是什么原因导致的。
 3. 可能原因：从机执行了delete或truncate操作
-3. 验证方法——从binlog中过滤出所有与该表有关的操作，进一步排查是否有delete和truncate操作。
+4. 验证方法——从binlog中过滤出所有与该表有关的操作，进一步排查是否有delete和truncate操作。
 
 ## 具体步骤
 
@@ -1111,6 +1111,8 @@ TRUNCATE TABLE sm_member_realtime_statistics
 
 
 # 通过relaylog中记录的update记录做回滚
+
+```shell
 mysql> desc fireway.sm_member_realtime_statistics;
 +------------------+---------------+------+-----+---------+----------------+
 | Field            | Type          | Null | Key | Default | Extra          |
@@ -1162,8 +1164,10 @@ set
   pos_pass_count=0,
   pos_reject_count=0,
   pos_trade_amount=0.00000;
-  
+
 # 注意row格式记录的timestamp格式是unixtime，需要转换以下
+
+​```shell
 
 mysql> select from_unixtime('1499788800');
 +-----------------------------+
@@ -1349,7 +1353,7 @@ mysql> select id,member_id,statis_date,last_time,create_time from `fireway`.`sm_
 | 66 | HJA2000000000002506384 | 2017-07-12  | 2017-07-12 00:00:00 | 2017-06-24 14:21:54 |
 +----+------------------------+-------------+---------------------+---------------------+
 13 rows in set (0.00 sec)
-
+```
 
 ## 还原思路
 
@@ -1389,7 +1393,6 @@ done < /tmp/tablecol
 [root@hjkj-mysql tmp]# sed -i '233,252s/\(.*\),/\1 and /' booboo.183.d
 
 # 导入sql
-
 ```
 
 ### 2. 184号-490号日志寻找1到44的记录
@@ -1399,11 +1402,6 @@ done < /tmp/tablecol
 
 
 
-获取所有的关于该表的sql
-
-mysqlbinlog --no-defaults -v -v --base64-output=DECODE-ROWS hjkj-mysql-relay-bin.000184 | sed -n '/sm_member_realtime_statistics/,/# at/p'|grep '^###' > /tmp/booboo
-
-[root@hjkj-mysql data]# for i in `seq 183 490`;do mysqlbinlog --no-defaults -v -v --base64-output=DECODE-ROWS hjkj-mysql-relay-bin.000$i | sed -n '/sm_member_realtime_statistics/,/# at/p'|grep '^###' | sed 's/^### //' > /tmp/booboo.$i ;done
 
 
 
@@ -1429,6 +1427,6 @@ mysqlbinlog --no-defaults -v -v --base64-output=DECODE-ROWS hjkj-mysql-relay-bin
 
 
 
+```
 
-
-
+```
