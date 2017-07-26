@@ -517,8 +517,8 @@ redis的数据回写机制分为两种
 解决方法:
 
 1. 关闭redis 服务器redis-cli shutdown		 
-2. 修改配置文件的最大内存 「maxmemory」	 
-2. 启动redis服务器redis-server redis.conf
+2. 修改配置文件的最大内存 「maxmemory」 
+3. 启动redis服务器redis-server redis.conf
 
 
 
