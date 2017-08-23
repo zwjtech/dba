@@ -542,3 +542,87 @@ SET
 COMMIT;
 #170823 19:32:01 server id 1  end_log_pos 1622 CRC32 0xe5e782b0 	Anonymous_GTID	last_committed=4	sequence_number=5
 ```
+
+## 修改代码
+
+```shell
+num=0
+names=locals()
+for a_str in a_list:
+        if n.match(a_str):
+                num=num+1
+                sql_num=0
+                names['b_list%d'%num]=[]
+                time_str=a_str[1:16]
+                s_num=a_str.index('end_log_pos')+11
+                e_num=a_str.index('CRC')
+                pos_str=a_str[s_num:e_num]
+                # new event
+                event_num=e_num+18
+                # new event
+                event_str=a_str[event_num:]
+                names['b_list%d'%num].append(time_str)
+                names['b_list%d'%num].append(pos_str)
+                names['b_list%d'%num].append(event_str.strip())
+                
+                 if not flag.match(a_str) and not thread.match(a_str) and not xid.match(a_str):
+                        sql_type_str='others'
+                        names['b_list%d'%num].append(sql_type_str)
+
+        if r.match(a_str):
+                sql_num=sql_num+1
+                if sql_num != 1:
+                        num=num+1
+                        names['b_list%d'%num]= names['b_list%d'%(num-1)][:3]
+                if begin.match(a_str):
+                        sql_type_str='begin'
+                elif commit.match(a_str):
+                        sql_type_str='commit'
+                elif insert.match(a_str):
+                        sql_type_str='insert'
+                elif delete.match(a_str):
+                        sql_type_str='delete'
+                elif update.match(a_str):
+                        sql_type_str='update'
+
+                names['b_list%d'%num].append(sql_type_str)
+                names['b_list%d'%num].append(a_str)
+```
+
+## 测试成功
+
+```shell
+[root@ToBeRoot ~]# python binlog_rollbacktest.py mastera.000046
+plz input start_postion:505
+plz input end_postion:1622
+============================================输出回滚语句===========================================================
+begin;
+UPDATE `uplooking`.`gai`  set    id=2 
+,   name='batman' 
+,   age=20 
+, updatetime='2017-08-23 19:24:56'  where  id=2 and  name='batman' and  age=100 and    updatetime='2017-08-23 19:24:56' 
+;
+UPDATE `uplooking`.`gai`  set    id=1 
+,   name='superman' 
+,   age=99 
+, updatetime='2017-08-23 19:24:56'  where  id=1 and  name='superman' and  age=100 and    updatetime='2017-08-23 19:24:56' 
+;
+commit;
+begin;
+UPDATE `uplooking`.`gai`  set    id=1 
+,   name='superman' 
+,   age=18 
+, updatetime='2017-08-23 19:24:56'  where  id=1 and  name='superman' and  age=99 and    updatetime='2017-08-23 19:24:56' 
+;
+UPDATE `uplooking`.`t1`  set    id=4 
+,   name='dad' 
+,   a1=0 
+,   a2=0 
+, a3=0  where  id=4 and  name='dad' and  a1=100 and  a2=0 and    a3=0 
+;
+commit;
+begin;
+DELETE FROM `uplooking`.`gai`  WHERE  id=2 and  name='batman' and  age=20 and  updatetime='2017-08-23 19:24:56';
+DELETE FROM `uplooking`.`gai`  WHERE  id=1 and  name='superman' and  age=18 and  updatetime='2017-08-23 19:24:56';
+commit;
+```
