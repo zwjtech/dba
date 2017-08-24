@@ -4,4 +4,6 @@
 2. [MySQL配置文件解析](https://github.com/BoobooWei/work_dayday/blob/master/2017-04-13-my.cnf)
 3. [MySQL性能调优入门脚本](shell/shellscriptsForMysql/troubleshooting/tuning-primer.sh)
 4. [常用命令](shell/shellscriptsForMysql/troubleshooting/常用命令.txt)
+5. [MySQL故障排查入门脚本](shell/shellscriptsForMysql/troubleshooting/TroubleShutingGe.py)
+
 
