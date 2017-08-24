@@ -1,4 +1,18 @@
+二进制日志分析和回滚测试手册
+
+> 2017-08-24 BoobooWei
+
+[TOC]
+
+
+
+
+
 ## 测试过程
+
+### 生成新日志
+
+执行一些操作
 
 ```shell
 mysql> flush logs;
@@ -76,15 +90,21 @@ mysql> select * from gai;
 |  2 | batman   |   20 | 2017-08-23 19:24:56 |
 +----+----------+------+---------------------+
 2 rows in set (0.00 sec)
+```
 
+### 模拟人为误操作
+
+此处模拟人为误操作，更新age时没有过滤，现在需要回滚。
+
+```shell
 mysql> update gai set age = 100;
 Query OK, 2 rows affected (0.01 sec)
 Rows matched: 2  Changed: 2  Warnings: 0
 ```
 
-1. 此处模拟人为误操作，更新age时没有过滤，现在需要回滚。
-2. 回滚的同时，gai表继续执行插入操作
+### 分析并回滚
 
+回滚的同时，gai表继续执行插入操作
 
 ```shell
 [root@ToBeRoot ~]# cat xx.sh
@@ -351,18 +371,6 @@ mysql> select * from binlogtosql where pos > 1200  and pos< 1700 ;
 
 接下来过滤文本并生成回滚sql脚本
 
-
-
-UPDATE `uplooking`.`gai`  
-WHERE  id=1  name='superman'  age=99  updatetime='2017-08-23 19:24:56'  
-SET  id=1  name='superman'  age=100  updatetime='2017-08-23 19:24:56'  
-
-update  
-
-UPDATE `uplooking`.`gai`  
-SET  id=2, name='batman', age=100, updatetim-08-23 19:24:56'  
-WHERE  id=2 and  name='batman' and  age=20 and  updatetime='2017-08-23 19:24:56';
-
 ```shell
 [root@ToBeRoot ~]# python binlog_rollbacktest.py mastera.000046 
 plz input start_postion:1345
@@ -418,9 +426,8 @@ commit;
 
 ## bug具体情况
 
-1. 无法解决事务内部同时出现多条sql的情况
-2. 无法解决多是更新多行
-3. 无法解决同时删除多行
+1. 无法解决事务内部一条DML同时修改多行
+2. 无法解决事务内部有多条DML
 
 
 ### 源sql VS binlog
@@ -429,7 +436,9 @@ commit;
 mysqlbinlog -vv --base64-output=DECODE-ROWS $1 | awk  '$0~/^###/ || $0~/end_log_pos/ || $0~/BEGIN/ || $0~/COMMIT/ {print $0}' |sed 's/^### //;s@\/\*.*\*\/@@' > ${1}.new
 ```
 
-#### 事务内部一条sql同时插入多行
+#### 事务内部一条DML同时修改多行
+
+##### insert 插入多行
 
 ```shell 
 #源sql
@@ -457,7 +466,53 @@ SET
 COMMIT;
 ```
 
-#### 事务内部多条sql
+##### update修改多行
+
+```shell
+# 源sql
+update gai set age = 100;
+
+
+# binlog
+#170823 19:26:55 server id 1  end_log_pos 1345 CRC32 0x15d43127 	Query	thread_id=15692	exec_time=0	error_code=0
+BEGIN
+#170823 19:26:55 server id 1  end_log_pos 1402 CRC32 0x7a65ad89 	Table_map: `uplooking`.`gai` mapped to number 1345
+#170823 19:26:55 server id 1  end_log_pos 1526 CRC32 0x07756f9c 	Update_rows: table id 1345 flags: STMT_END_F
+UPDATE `uplooking`.`gai`
+WHERE
+  @1=1 
+  @2='superman' 
+  @3=99 
+  @4='2017-08-23 19:24:56' 
+SET
+  @1=1 
+  @2='superman' 
+  @3=100 
+  @4='2017-08-23 19:24:56' 
+UPDATE `uplooking`.`gai`
+WHERE
+  @1=2 
+  @2='batman' 
+  @3=20 
+  @4='2017-08-23 19:24:56' 
+SET
+  @1=2 
+  @2='batman' 
+  @3=100 
+  @4='2017-08-23 19:24:56' 
+#170823 19:26:55 server id 1  end_log_pos 1557 CRC32 0xa31e1c92 	Xid = 93992
+COMMIT;
+#170823 19:32:01 server id 1  end_log_pos 1622 CRC32 0xe5e782b0 	Anonymous_GTID	last_committed=4	sequence_number=5
+```
+
+##### delete删除多行
+
+```shell
+# 源sql
+
+```
+
+#### 事务内部有多条DML
 
 ```shell
 #源sql
@@ -504,46 +559,37 @@ COMMIT;
 #170823 19:26:55 server id 1  end_log_pos 1268 CRC32 0x1b5c177d 	Anonymous_GTID	last_committed=3	sequence_number=4
 ```
 
-#### 事务内部一条update未过滤
+## 修改代码
+
+> 思路：原先设置num变量为event事件计数器num，现在将其num变量做为事件和无事件标识的sql的总计数器；新增一个事件中的sql计数器sql_num
+
+### 如何定义event事件
+
+每一个event都会有不同的位置编号position值，在binlog中是以`# 日期时间`开头的行
+
+### event+no_event_sql计数器
+
+#### event中存在多条DML的情况
+
+* 事务内部一条DML同时修改多行`insert into gai values (null,'superman',18,sysdate()),(null,'batman',20,sysdate());`
+* 事务内部多条DML
 
 ```shell
-# 源sql
-update gai set age = 100;
-
-
-# binlog
-#170823 19:26:55 server id 1  end_log_pos 1345 CRC32 0x15d43127 	Query	thread_id=15692	exec_time=0	error_code=0
-BEGIN
-#170823 19:26:55 server id 1  end_log_pos 1402 CRC32 0x7a65ad89 	Table_map: `uplooking`.`gai` mapped to number 1345
-#170823 19:26:55 server id 1  end_log_pos 1526 CRC32 0x07756f9c 	Update_rows: table id 1345 flags: STMT_END_F
-UPDATE `uplooking`.`gai`
-WHERE
-  @1=1 
-  @2='superman' 
-  @3=99 
-  @4='2017-08-23 19:24:56' 
-SET
-  @1=1 
-  @2='superman' 
-  @3=100 
-  @4='2017-08-23 19:24:56' 
-UPDATE `uplooking`.`gai`
-WHERE
-  @1=2 
-  @2='batman' 
-  @3=20 
-  @4='2017-08-23 19:24:56' 
-SET
-  @1=2 
-  @2='batman' 
-  @3=100 
-  @4='2017-08-23 19:24:56' 
-#170823 19:26:55 server id 1  end_log_pos 1557 CRC32 0xa31e1c92 	Xid = 93992
-COMMIT;
-#170823 19:32:01 server id 1  end_log_pos 1622 CRC32 0xe5e782b0 	Anonymous_GTID	last_committed=4	sequence_number=5
+begin;
+update t1 set a1=100 where id=4;
+update gai set age=99 where name='superman';
+commit;
 ```
 
-## 修改代码
+####event+no_event_sql计数器原理
+
+* 同一个event内部
+
+
+* 第一条dml语句sql_num=1
+* 第二条dml语句出现，则sql_num+1
+* 判断sql_num的值是否大于1，为真则event+1
+* 信息存放于新的list中，type，sqlinfo加入list之前，先将上一个list中的id，time，pos元素追加的新list中
 
 ```shell
 num=0
@@ -551,6 +597,7 @@ names=locals()
 for a_str in a_list:
         if n.match(a_str):
                 num=num+1
+                #事务中sql计数
                 sql_num=0
                 names['b_list%d'%num]=[]
                 time_str=a_str[1:16]
@@ -570,6 +617,7 @@ for a_str in a_list:
                         names['b_list%d'%num].append(sql_type_str)
 
         if r.match(a_str):
+     		   # sql_num为同一event中的sql计数器 
                 sql_num=sql_num+1
                 if sql_num != 1:
                         num=num+1
@@ -591,9 +639,76 @@ for a_str in a_list:
 
 ## 测试成功
 
+### 分析后的sql
+
+```shell
+# 分析后的sql
+mysql> select id,pos,edate,etime,left(event,5) event,type,left(sqlinfo,20) from binlogtosql limit 30;
++----+------+------------+----------+-------+--------+----------------------+
+| id | pos  | edate      | etime    | event | type   | left(sqlinfo,20)     |
++----+------+------------+----------+-------+--------+----------------------+
+|  1 |  123 | 2017-08-23 | 19:22:52 | Start | others | others               |
+|  2 |  194 | 2017-08-23 | 19:22:52 | Previ | others | others               |
+|  3 |  259 | 2017-08-23 | 19:24:19 | Anony | others | others               |
+|  4 |  440 | 2017-08-23 | 19:24:19 | Query | others | others               |
+|  5 |  505 | 2017-08-23 | 19:25:01 | Anony | others | others               |
+|  6 |  590 | 2017-08-23 | 19:24:56 | Query | begin  | begin;               |
+|  7 |  647 | 2017-08-23 | 19:24:56 | Table | others | others               |
+|  8 |  726 | 2017-08-23 | 19:24:56 | Write | insert | INSERT INTO `uplooki |
+|  9 |  726 | 2017-08-23 | 19:24:56 | Write | insert | INSERT INTO `uplooki |
+| 10 |  757 | 2017-08-23 | 19:25:01 | Xid = | commit | commit;              |
+| 11 |  822 | 2017-08-23 | 19:26:19 | Anony | others | others               |
+| 12 |  899 | 2017-08-23 | 19:25:58 | Query | begin  | begin;               |
+| 13 |  955 | 2017-08-23 | 19:25:58 | Table | others | others               |
+| 14 | 1033 | 2017-08-23 | 19:25:58 | Updat | update | UPDATE `uplooking`.` |
+| 15 | 1090 | 2017-08-23 | 19:26:17 | Table | others | others               |
+| 16 | 1172 | 2017-08-23 | 19:26:17 | Updat | update | UPDATE `uplooking`.` |
+| 17 | 1203 | 2017-08-23 | 19:26:19 | Xid = | commit | commit;              |
+| 18 | 1268 | 2017-08-23 | 19:26:55 | Anony | others | others               |
+| 19 | 1345 | 2017-08-23 | 19:26:55 | Query | begin  | begin;               |
+| 20 | 1402 | 2017-08-23 | 19:26:55 | Table | others | others               |
+| 21 | 1526 | 2017-08-23 | 19:26:55 | Updat | update | UPDATE `uplooking`.` |
+| 22 | 1526 | 2017-08-23 | 19:26:55 | Updat | update | UPDATE `uplooking`.` |
+| 23 | 1557 | 2017-08-23 | 19:26:55 | Xid = | commit | commit;              |
+| 24 | 1622 | 2017-08-23 | 19:32:01 | Anony | others | others               |
+| 25 | 1707 | 2017-08-23 | 19:32:01 | Query | begin  | begin;               |
+| 26 | 1764 | 2017-08-23 | 19:32:01 | Table | others | others               |
+| 27 | 1816 | 2017-08-23 | 19:32:01 | Write | insert | INSERT INTO `uplooki |
+| 28 | 1847 | 2017-08-23 | 19:32:01 | Xid = | commit | commit;              |
+| 29 | 1912 | 2017-08-23 | 19:32:01 | Anony | others | others               |
+| 30 | 1997 | 2017-08-23 | 19:32:01 | Query | begin  | begin;               |
++----+------+------------+----------+-------+--------+----------------------+
+30 rows in set (0.00 sec)
+```
+
+### 找到人为误操作的pos点
+
+
+```shell
+# 找到人为误操作的pos点，注意找到begin之前和commit之后的pos点才对
+# update gai set age = 100; 在binlog中显示多行
+
+| 18 | 1268 | 2017-08-23 | 19:26:55 | Anony | others | others               |
+| 19 | 1345 | 2017-08-23 | 19:26:55 | Query | begin  | begin;               |
+| 20 | 1402 | 2017-08-23 | 19:26:55 | Table | others | others               |
+| 21 | 1526 | 2017-08-23 | 19:26:55 | Updat | update | UPDATE `uplooking`.` |
+| 22 | 1526 | 2017-08-23 | 19:26:55 | Updat | update | UPDATE `uplooking`.` |
+| 23 | 1557 | 2017-08-23 | 19:26:55 | Xid = | commit | commit;              |
+| 24 | 1622 | 2017-08-23 | 19:32:01 | Anony | others | others               |
+
+```
+
+###  begin之前的pos值为1268
+
+### commit之后的pos值为1622
+
+一定要严格按照begin之前和commit之后，否则会缺失begin或commit
+
+### 根据pos点产生回滚语句
+
 ```shell
 [root@ToBeRoot ~]# python binlog_rollbacktest.py mastera.000046
-plz input start_postion:505
+plz input start_postion:1268
 plz input end_postion:1622
 ============================================输出回滚语句===========================================================
 begin;
@@ -608,21 +723,79 @@ UPDATE `uplooking`.`gai`  set    id=1
 , updatetime='2017-08-23 19:24:56'  where  id=1 and  name='superman' and  age=100 and    updatetime='2017-08-23 19:24:56' 
 ;
 commit;
-begin;
-UPDATE `uplooking`.`gai`  set    id=1 
-,   name='superman' 
-,   age=18 
-, updatetime='2017-08-23 19:24:56'  where  id=1 and  name='superman' and  age=99 and    updatetime='2017-08-23 19:24:56' 
-;
-UPDATE `uplooking`.`t1`  set    id=4 
-,   name='dad' 
-,   a1=0 
-,   a2=0 
-, a3=0  where  id=4 and  name='dad' and  a1=100 and  a2=0 and    a3=0 
-;
-commit;
-begin;
-DELETE FROM `uplooking`.`gai`  WHERE  id=2 and  name='batman' and  age=20 and  updatetime='2017-08-23 19:24:56';
-DELETE FROM `uplooking`.`gai`  WHERE  id=1 and  name='superman' and  age=18 and  updatetime='2017-08-23 19:24:56';
-commit;
+==========================================END=========================================================================
+
+
 ```
+
+### 执行回滚语句
+
+```shell
+mysql> select * from gai where age=100;
++-----+----------+------+---------------------+
+| id  | name     | age  | updatetime          |
++-----+----------+------+---------------------+
+|   1 | superman |  100 | 2017-08-23 19:24:56 |
+|   2 | batman   |  100 | 2017-08-23 19:24:56 |
+| 102 | a100     |  100 | 2017-08-23 19:32:02 |
++-----+----------+------+---------------------+
+3 rows in set (0.01 sec)
+
+mysql> begin;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> UPDATE `uplooking`.`gai`  set    id=2 
+    -> ,   name='batman' 
+    -> ,   age=20 
+    -> , updatetime='2017-08-23 19:24:56'  where  id=2 and  name='batman' and  age=100 and    updatetime='2017-08-23 19:24:56' 
+    -> ;
+n' 
+,   age=99 
+, updatetime='2017-08-23 19:24:56'  where  id=1 and  name='superman' and  age=100 and    updatetime='2017-08-23 19:24:56' 
+;
+Query OK, 1 row affected (0.00 sec)
+Rows matched: 1  Changed: 1  Warnings: 0
+
+mysql> UPDATE `uplooking`.`gai`  set    id=1 
+    -> ,   name='superman' 
+    -> ,   age=99 
+    -> , updatetime='2017-08-23 19:24:56'  where  id=1 and  name='superman' and  age=100 and    updatetime='2017-08-23 19:24:56' 
+    -> ;
+Query OK, 1 row affected (0.00 sec)
+Rows matched: 1  Changed: 1  Warnings: 0
+
+mysql> select * from gai where age=100;
++-----+------+------+---------------------+
+| id  | name | age  | updatetime          |
++-----+------+------+---------------------+
+| 102 | a100 |  100 | 2017-08-23 19:32:02 |
++-----+------+------+---------------------+
+1 row in set (0.00 sec)
+
+mysql> select * from gai where id in (1,2);
++----+----------+------+---------------------+
+| id | name     | age  | updatetime          |
++----+----------+------+---------------------+
+|  1 | superman |   99 | 2017-08-23 19:24:56 |
+|  2 | batman   |   20 | 2017-08-23 19:24:56 |
++----+----------+------+---------------------+
+2 rows in set (0.00 sec)
+
+# 对比过去，成功
+mysql> select * from gai;
++----+----------+------+---------------------+
+| id | name     | age  | updatetime          |
++----+----------+------+---------------------+
+|  1 | superman |   99 | 2017-08-23 19:24:56 |
+|  2 | batman   |   20 | 2017-08-23 19:24:56 |
++----+----------+------+---------------------+
+```
+
+### 测试成功，总结用法
+
+1. 获取binlog日志复制一份
+2. python binlog_analyze_all.py binlog.xxxxxx
+3. python binlog_rollbacktest.py binlog.xxxxxx
+4. mysql执行上一条程序返回的sql语句
+ps： 可以将第三个步骤中命令的执行结果输出到文本文件中
+
