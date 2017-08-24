@@ -1,0 +1,91 @@
+故障排查脚本
+
+/*适用于：ECS自建MySQL*/
+
+解决问题最好的方法：
+
+1. 通过标准化的步骤来定位问题
+2. 列出所有可能的原因
+3. 依次测试
+4. 找到解决方案
+
+也许对于资深专家来说这种方法很初级不够高效，但是它确实是有效的。
+
+该排错指南将围绕着帮助读者定位问题和寻找原因的目的进行组织，使读者从起步就处于正确的道路上，以便可以快速解决各种问题。最佳解决方案取决于应用程序和用户的需求，不能生搬硬套，要找到合适自己的方法。
+
+
+信息搜集{
+	/*将信息保存到指定目录/tmp/mysqlTroubleShooting*/
+	硬件规格信息{
+		/*保存至/tmp/mysqlTroubleShooting/info.hardware*/
+		cpu
+		mem
+		hard
+		io
+		net
+	}
+	系统资源使用信息{
+		/*保存至/tmp/mysqlTroubleShooting/info.sysres*/
+		release
+		kernel
+		cpu
+		mem
+		hard
+		io
+		net
+		process
+	}
+	系统和服务的日志信息{
+		/*复制一份至/tmp/mysqlTroubleShooting/info_dir/*/
+		/var/log/messages
+		error-log
+		bin-log
+		slow-log
+	}
+	数据库配置文件信息{
+		/*复制一份至/tmp/mysqlTroubleShooting/info_dir/my.cnf；并且获取关键信息保存至/tmp/mysqlTroubleShooting/info.mysqldir中*/
+		/etc/my.cnf
+		basedir
+		datadir
+		log-bin
+		log-error
+		slow-log
+	}
+	服务器参数信息{
+		/*获取关键信息保存至/tmp/mysqlTroubleShooting/info.variables中*/
+		参数
+	}
+}
+	数据库运行状态信息{
+		/*获取的信息保存至/tmp/mysqlTroubleShooting/info.mysqlstatus;/tmp/mysqlTroubleShooting/info.mysqlconnstatus*/
+		整体状态
+		连接状态
+	}
+	存储引擎状态信息{
+		/*获取的信息保存至/tmp/mysqlTroubleShooting/info.innodbstatus;/tmp/mysqlTroubleShooting/info.innodblocks*/
+		innodb
+		锁信息
+	}
+	主从复制信息（从）{
+		/*通过show master status；show slave status 获取的信息保存至/tmp/mysqlTroubleShooting/info.masterstatus;/tmp/mysqlTroubleShooting/info.slavestatus*/
+		master
+		slave
+	}
+	数据库权限信息{
+		/*获取的信息保存至/tmp/mysqlTroubleShooting/info.mysqluserstatus*/
+		grant
+	}
+
+
+定位问题{
+	
+	
+	
+}
+
+故障解决{
+	
+1. metadataLock
+2. 
+
+}
