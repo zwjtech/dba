@@ -1,4 +1,4 @@
-故障排查脚本
+﻿故障排查脚本
 
 /*适用于：ECS自建MySQL*/
 
@@ -21,8 +21,7 @@
 		cpu
 		mem
 		hard
-		io
-		net
+	
 	}
 	系统资源使用信息{
 		/*保存至/tmp/mysqlTroubleShooting/info.sysres*/

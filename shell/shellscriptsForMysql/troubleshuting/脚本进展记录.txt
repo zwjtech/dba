@@ -1,0 +1,113 @@
+## 信息获取
+
+2017-08-24 脚本进展情况如下
+
+```shell
+[root@ToBeRoot ~]# cd troubleshuting/
+[root@ToBeRoot troubleshuting]# ls
+mysqlbala.py  TroubleShutingGe.py
+[root@ToBeRoot troubleshuting]# python TroubleShutingGe.py 
+
+
+=============硬件规格信息:cpu mem disk=====================
+
+mem:                          0.98G                         
+kernel:                       2.6.32-642.13.1.el6.i686      
+disk:                         39.25G                        
+cpu:                          1                             
+rele:                         CentOS release 6.8 (Final)    
+
+
+=============Mysqld变量的详细信息=====================
+
+变量信息保存至mysqlvariables.info文件中
+
+
+=============Mysqld重要路径信息=====================
+
+datadir:                      /var/lib/mysql/               
+binlog:                       /var/lib/mysql-log/mastera    
+errorlog:                     /var/log/mysqld.log           
+slowlog:                      /var/lib/mysql-log/mysql-slow.log
+
+
+=============系统资源使用信息:cpu mem disk io net process=====================
+
+mem使用情况:				35.7%
+cpu使用情况:
+20:28:14 up 51 days,  1:21,  3 users,  load average: 0.00, 0.00, 0.00
+io使用情况:
+Linux 2.6.32-642.13.1.el6.i686 (ToBeRoot) 	08/24/2017 	_i686_	(1 CPU)
+
+avg-cpu:  %user   %nice %system %iowait  %steal   %idle
+           0.50    0.00    0.28    0.06    0.00   99.16
+
+Device:         rrqm/s   wrqm/s     r/s     w/s    rkB/s    wkB/s avgrq-sz avgqu-sz   await r_await w_await  svctm  %util
+vda               0.01     2.16    0.05    0.95     1.70    12.43    28.32     0.01    5.78    2.98    5.93   1.00   0.10
+
+avg-cpu:  %user   %nice %system %iowait  %steal   %idle
+           0.00    0.00    0.00    0.00    0.00  100.00
+
+Device:         rrqm/s   wrqm/s     r/s     w/s    rkB/s    wkB/s avgrq-sz avgqu-sz   await r_await w_await  svctm  %util
+vda               0.00     0.00    0.00    0.00     0.00     0.00     0.00     0.00    0.00    0.00    0.00   0.00   0.00
+
+avg-cpu:  %user   %nice %system %iowait  %steal   %idle
+           1.00    0.00    0.00    0.00    0.00   99.00
+
+Device:         rrqm/s   wrqm/s     r/s     w/s    rkB/s    wkB/s avgrq-sz avgqu-sz   await r_await w_await  svctm  %util
+vda               0.00     0.00    0.00    0.00     0.00     0.00     0.00     0.00    0.00    0.00    0.00   0.00   0.00
+
+
+占用mem最高的5个进程:
+mysql    31172  0.0 20.1 1169756 207760 pts/1  Sl   13:16   0:10 /usr/sbin/mysqld --basedir=/usr --datadir=/var/lib/mysql --plugin-dir=/usr/lib/mysql/plugin --user=mysql --log-error=/var/log/mysqld.log --pid-file=/var/run/mysqld/mysqld.pid --socket=/var/lib/mysql/mysql.sock
+root     10967  0.3  4.5 114360 46804 ?        Sl   Aug17  35:22 /usr/local/cloudmonitor/jre/bin/java -Djava.compiler=none -XX:-UseGCOverheadLimit -XX:NewRatio=1 -XX:SurvivorRatio=8 -XX:+UseSerialGC -Djava.io.tmpdir=../../tmp -Xms16m -Xmx32m -Djava.library.path=../lib:../../lib -classpath ../lib/wrappertest.jar:../lib/wrapper.jar:../../config:../../lib/agent-commons-1.2.11.jar:../../lib/agent-core-1.2.11.jar:../../lib/agent-model-1.2.11.jar:../../lib/aopalliance-1.0.jar:../../lib/commons-logging-1.2.jar:../../lib/commons-net-3.5.jar:../../lib/gson-2.4.jar:../../lib/jvm-plugin-1.2.11.jar:../../lib/log4j-1.2.16.jar:../../lib/metrics-core-3.0.2.jar:../../lib/sigar-1.6.5.132.jar:../../lib/slf4j-api-1.7.5.jar:../../lib/spring-aop-4.2.4.RELEASE.jar:../../lib/spring-beans-4.2.4.RELEASE.jar:../../lib/spring-context-4.2.4.RELEASE.jar:../../lib/spring-core-4.2.4.RELEASE.jar:../../lib/spring-expression-4.2.4.RELEASE.jar:../../lib/system-plugin-1.2.11.jar:../../lib/updater-1.2.11-jar-with-dependencies.jar -Dwrapper.key=bwfxkih8-sfmzQe3 -Dwrapper.port=32000 -Dwrapper.jvm.port.min=31000 -Dwrapper.jvm.port.max=31999 -Dwrapper.disable_console_input=TRUE -Dwrapper.pid=10965 -Dwrapper.version=3.5.27 -Dwrapper.native_library=wrapper -Dwrapper.arch=x86 -Dwrapper.service=TRUE -Dwrapper.cpu.timeout=10 -Dwrapper.jvmid=1 com.aliyun.tianji.cloudmonitor.Application
+root      1878  0.0  1.4  37488 14840 pts/0    Sl+  19:57   0:00 /usr/bin/python /usr/bin/ipython
+apache   23575  0.0  1.1  41600 11888 ?        S    Aug22   0:00 /usr/sbin/httpd
+apache   23570  0.0  1.0  39552 10548 ?        S    Aug22   0:00 /usr/sbin/httpd
+
+占用CPU最高的5个进程:
+root      2279  2.0  0.7  18484  7248 pts/1    S+   20:28   0:00 python TroubleShutingGe.py
+root     10967  0.3  4.5 114360 46804 ?        Sl   Aug17  35:22 /usr/local/cloudmonitor/jre/bin/java -Djava.compiler=none -XX:-UseGCOverheadLimit -XX:NewRatio=1 -XX:SurvivorRatio=8 -XX:+UseSerialGC -Djava.io.tmpdir=../../tmp -Xms16m -Xmx32m -Djava.library.path=../lib:../../lib -classpath ../lib/wrappertest.jar:../lib/wrapper.jar:../../config:../../lib/agent-commons-1.2.11.jar:../../lib/agent-core-1.2.11.jar:../../lib/agent-model-1.2.11.jar:../../lib/aopalliance-1.0.jar:../../lib/commons-logging-1.2.jar:../../lib/commons-net-3.5.jar:../../lib/gson-2.4.jar:../../lib/jvm-plugin-1.2.11.jar:../../lib/log4j-1.2.16.jar:../../lib/metrics-core-3.0.2.jar:../../lib/sigar-1.6.5.132.jar:../../lib/slf4j-api-1.7.5.jar:../../lib/spring-aop-4.2.4.RELEASE.jar:../../lib/spring-beans-4.2.4.RELEASE.jar:../../lib/spring-context-4.2.4.RELEASE.jar:../../lib/spring-core-4.2.4.RELEASE.jar:../../lib/spring-expression-4.2.4.RELEASE.jar:../../lib/system-plugin-1.2.11.jar:../../lib/updater-1.2.11-jar-with-dependencies.jar -Dwrapper.key=bwfxkih8-sfmzQe3 -Dwrapper.port=32000 -Dwrapper.jvm.port.min=31000 -Dwrapper.jvm.port.max=31999 -Dwrapper.disable_console_input=TRUE -Dwrapper.pid=10965 -Dwrapper.version=3.5.27 -Dwrapper.native_library=wrapper -Dwrapper.arch=x86 -Dwrapper.service=TRUE -Dwrapper.cpu.timeout=10 -Dwrapper.jvmid=1 com.aliyun.tianji.cloudmonitor.Application
+root     19499  0.1  0.8 438184  9188 ?        Ssl  Aug10  22:50 /usr/local/aegis/aegis_client/aegis_10_31/AliYunDun
+root     29780  0.1  0.1  29996  1444 ?        Ssl  Aug11  19:19 /alidata/redis/src/redis-server 172.19.106.62:6380                
+apache    1920  0.0  0.2  32500  2816 ?        S    Jul04   0:00 php-fpm: pool www            
+
+disk使用情况:				33.3%
+net使用情况:
+snetio(bytes_sent=13778430114L, bytes_recv=12898586534L, packets_sent=129141045, packets_recv=130395070, errin=0, errout=0, dropin=0, dropout=0)
+
+
+=============Mysqld进程的详细信息=====================
+
+进程CPU时间信息				[0]
+进程开启线程数				38
+进程gid信息				pgids(real=500, effective=500, saved=500)
+进程状态				sleeping
+进程bin路径				/usr/sbin/mysqld
+进程IO信息				pio(read_count=2460, write_count=2670, read_bytes=16666624, write_bytes=18796544, read_chars=19570306, write_chars=18342111)
+进程内存利用率				20.1646873386
+进程uid信息				puids(real=500, effective=500, saved=500)
+进程创建时间				2017-08-24 13:16:51
+进程内存信息				pmem(rss=212746240, vms=1197830144, shared=13017088, text=24309760, lib=0, data=1168994304, dirty=0)
+进程socket列表				[pconn(fd=41, family=2, type=1, laddr=('0.0.0.0', 3306), raddr=(), status='LISTEN'), pconn(fd=57, family=2, type=1, laddr=('127.0.0.1', 3306), raddr=('127.0.0.1', 58610), status='ESTABLISHED')]
+MySQL进程名				mysqld
+
+[root@ToBeRoot troubleshuting]# ls
+hardware.info  info_dir  mysqlbala.py  mysqlbala.pyc  mysqlps.info  mysqlvariables.info  sysres.info  TroubleShutingGe.py
+[root@ToBeRoot troubleshuting]# ls info_dir/
+messages  my.cnf
+[root@ToBeRoot troubleshuting]# cat hardware.info 
+mem:                          0.98G                         
+kernel:                       2.6.32-642.13.1.el6.i686      
+disk:                         39.25G                        
+cpu:                          1                             
+rele:                         CentOS release 6.8 (Final)
+
+
+
+
+
+
+
+
+```
